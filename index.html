@@ -52,7 +52,14 @@
  .salary-list .rowline{align-items:flex-start}
 }
 @media(max-width:360px){.compact-hero{flex-direction:column;align-items:flex-start}.topbar .month-control{width:136px}}
-</style></head><body><div class="shell"><aside class="sidebar"><div class="brand"><div class="brand-mark">＋</div><div><strong>マイドクターペイ</strong></div></div><div id="side-nav"></div><div class="sidebar-bottom"><div>v1.1</div></div></aside><div class="mobile-top"><div class="brand-small"><i>＋</i>マイドクターペイ</div></div><main class="main" id="app"></main><nav class="mobile-nav" id="mobile-nav" aria-label="モバイルメニュー"></nav></div><div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div><input id="json-upload" type="file" accept=".json,application/json" hidden>
+
+.salary-auto-info{font-size:12px;color:#476c75;padding:5px 0 2px}
+.salary-override{background:#f1faf9;border-radius:12px;padding:10px 12px;border:1px solid #cce5e2;margin-top:7px}
+.salary-override .field{min-width:0}
+.salary-override .field input{background:#fff}
+.salary-override .button{margin-top:5px}
+.work-dates{font-size:11px;color:#718093;margin-top:5px}
+</style></head><body><div class="shell"><aside class="sidebar"><div class="brand"><div class="brand-mark">＋</div><div><strong>マイドクターペイ</strong></div></div><div id="side-nav"></div><div class="sidebar-bottom"><div>v1.2</div></div></aside><div class="mobile-top"><div class="brand-small"><i>＋</i>マイドクターペイ</div></div><main class="main" id="app"></main><nav class="mobile-nav" id="mobile-nav" aria-label="モバイルメニュー"></nav></div><div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div><input id="json-upload" type="file" accept=".json,application/json" hidden>
 <script>
 (()=>{'use strict';
 const KEY='mydoctorpay_salary_v1',V=1,MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
@@ -81,6 +88,10 @@ function getEmployer(id){return data.employers.find(x=>x.id===id)}
 function getEntry(id){return data.entries.find(x=>x.id===id)}
 function kindName(k){return {full:'常勤',weekly:'定期非常勤',spot:'スポット'}[k]||k}
 const DAYNAMES=['日','月','火','水','木','金','土'];
+const dayOptions=(empty=false)=>[...(empty?[['0','未設定']]:[]),['32','末日'],...Array.from({length:31},(_,i)=>[String(i+1),`${i+1}日`])];
+const dayName=d=>!num(d)?'未設定':num(d)===32?'末日':`${d}日`;
+const lagName=lag=>['当月','翌月','翌々月','3か月後'][num(lag)]||`${lag}か月後`;
+
 function firstNthMonday(y,m,n){const first=new Date(y,m-1,1).getDay();return 1+(8-first)%7+(n-1)*7}
 function dayKey(y,m,d){return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
 function holidaySet(y){const h=new Set(),add=(m,d)=>h.add(dayKey(y,m,d));if(y<2020||y>2099)return null;
@@ -96,11 +107,38 @@ function holidaySet(y){const h=new Set(),add=(m,d)=>h.add(dayKey(y,m,d));if(y<20
  // 振替休日（祝日が日曜なら、次の祝日でない日）
  const src=[...h].sort();for(const s of src){const dt=new Date(s+'T12:00:00');if(dt.getDay()===0){let nx=new Date(dt);do{nx.setDate(nx.getDate()+1)}while(h.has(dayKey(nx.getFullYear(),nx.getMonth()+1,nx.getDate())));if(nx.getFullYear()===y)h.add(dayKey(nx.getFullYear(),nx.getMonth()+1,nx.getDate()))}}
  return h}
-function weeklyCount(employer,depositMonth,override=null){if(override!==null&&override!==undefined&&override!=='')return {count:+override,source:'修正日数',workMonth:moveMonth(depositMonth,-num(employer.lag))};
- const workMonth=moveMonth(depositMonth,-num(employer.lag));if(employer.weekday===''||employer.weekday===null||employer.weekday===undefined)return{count:null,source:'曜日未設定',workMonth};
- const [y,m]=workMonth.split('-').map(Number),h=holidaySet(y);if(!h)return {count:null,source:'祝日計算対象外（2020〜2099年）',workMonth};let count=0,all=0,hol=0;
- for(let d=1;d<=new Date(y,m,0).getDate();d++){const date=new Date(y,m-1,d);if(date.getDay()!==+employer.weekday)continue;all++;const isHoliday=h.has(dayKey(y,m,d));if(isHoliday)hol++;if(employer.holiday==='on'||!isHoliday)count++}
- return{count,all,hol,source:employer.holiday==='on'?'祝日勤務':'祝日休み',workMonth}}
+// 締め月＝振込月から lag か月前。各締め期間は「前回締め日の翌日〜今回締め日」。
+function limitDay(y,m,d){const last=new Date(y,m,0).getDate();return d===32||!d?last:Math.min(Math.max(1,d),last)}
+function closingDate(month,day){const [y,m]=month.split('-').map(Number);return new Date(y,m-1,limitDay(y,m,num(day)||32))}
+function dateISO(d){return dayKey(d.getFullYear(),d.getMonth()+1,d.getDate())}
+function shortDate(d){return `${d.getMonth()+1}/${d.getDate()}`}
+function payrollPeriod(e,depositMonth){
+ const closeMonth=moveMonth(depositMonth,-num(e.lag));
+ const end=closingDate(closeMonth,e.closeDay??32);
+ const previous=closingDate(moveMonth(closeMonth,-1),e.closeDay??32);
+ const start=new Date(previous.getFullYear(),previous.getMonth(),previous.getDate()+1);
+ return {start,end,closeMonth,label:`${shortDate(start)}〜${shortDate(end)}`};
+}
+function paydayInfo(e,depositMonth){
+ const pd=num(e.payday);if(!pd)return null;
+ const [y,m]=depositMonth.split('-').map(Number),d=new Date(y,m-1,limitDay(y,m,pd));
+ return {date:d,label:`${dateISO(d)} 支払予定`};
+}
+function weeklyCount(employer,depositMonth,override=null){
+ const period=payrollPeriod(employer,depositMonth),workMonth=period.closeMonth;
+ if(employer.weekday===''||employer.weekday===null||employer.weekday===undefined)
+  return {count:has(override)?num(override):null,source:'曜日未設定',workMonth,...period};
+ let count=0,all=0,hol=0;
+ for(let d=new Date(period.start);d<=period.end;d.setDate(d.getDate()+1)){
+  if(d.getDay()!==+employer.weekday)continue;
+  all++;
+  const isHoliday=holidaySet(d.getFullYear())?.has(dateISO(d))||false;
+  if(isHoliday)hol++;
+  if(employer.holiday==='on'||!isHoliday)count++;
+ }
+ if(has(override))return{count:num(override),all,hol,source:'修正回数',workMonth,...period};
+ return{count,all,hol,source:employer.holiday==='on'?'祝日勤務':'祝日休み',workMonth,...period};
+}
 function forecast(e,month,entry){const val=n=>entry&&has(entry[n])?num(entry[n]):num(e[n]);const manual=entry&&has(entry.forecastOverride)?num(entry.forecastOverride):null;
  if(e.kind==='weekly'){const w=weeklyCount(e,month,entry?.daysOverride);const base=w.count===null?0:w.count*val('daily'),travel=w.count===null?0:w.count*val('travelPer');const extra=entry?num(entry.forecastExtra):0;return {total:manual??base+travel+extra,taxable:manual!==null?Math.max(0,manual-travel):base+extra,travel,base,extra,detail:w,hasForecast:manual!==null||w.count!==null}}
  const base=val('base'),overtime=val('overtime'),bonus=val('bonus'),travel=val('travel'),other=val('other');return{total:manual??base+overtime+bonus+travel+other,taxable:manual!==null?Math.max(0,manual-travel):base+overtime+bonus+other,travel,base,overtime,bonus,other,hasForecast:true}}
@@ -134,8 +172,8 @@ function yearControl(){return `<div class="month-controls"><button class="button
 function topbar(k,title,actions=''){return `<div class="topbar"><div><h1>${title}</h1></div><div class="top-actions">${actions}</div></div>`}
 function rowStatus(row){return confirmed(row.r)?'<span class="pill">確定</span>':row.r?'<span class="pill amber">予想</span>':'<span class="pill gray">自動</span>'}
 function rowTitle(row){return `${esc(row.e.name)} <span class="tag">${kindName(row.e.kind)}</span>`}
-function rowSummary(row){const r=row.r;const notes=[];if(row.e.kind==='weekly'){const d=row.f.detail;notes.push(`${esc(d.workMonth)}勤務・${d.count===null?'曜日未設定':d.count+'回'}`)}if(r?.memo)notes.push(esc(r.memo));return notes.join(' · ')}
-function rowLine(row){const {e,r,f}=row;const isConfirmed=confirmed(r);return `<div class="rowline salary-row"><div class="lead"><div class="names">${rowTitle(row)}</div><div class="sub">${rowStatus(row)} ${rowSummary(row)}</div>${isConfirmed?`<div class="small-label">額面 ${money(r.actualGross)} ／ 予想 ${money(f.total)}</div>`:''}</div><div class="salary-right"><div class="money">${isConfirmed?money(r.actualNet):money(f.total)}</div><div class="small-label">${isConfirmed?'手取り':'予想額面'}</div><div class="actions"><button class="button sm" data-act="entry" data-employer="${esc(e.id)}" data-id="${r?esc(r.id):''}">${r?'編集':'入力'}</button>${r?`<button class="button sm danger" data-act="remove-entry" data-id="${esc(r.id)}" aria-label="${esc(e.name)}の入力を削除">削除</button>`:''}</div></div></div>`}
+function rowSummary(row){const r=row.r;const notes=[];if(row.e.kind==='weekly'){const d=row.f.detail;notes.push(`${esc(d.label)}・${d.count===null?'曜日未設定':d.count+'回'}`)}const pay=paydayInfo(row.e,ui.month);if(pay)notes.push(`${shortDate(pay.date)}支払予定`);if(r?.memo)notes.push(esc(r.memo));return notes.join(' · ')}
+function rowLine(row){const {e,r,f}=row;const isConfirmed=confirmed(r);return `<div class="rowline salary-row"><div class="lead"><div class="names">${rowTitle(row)}</div><div class="sub">${rowStatus(row)} ${rowSummary(row)}</div>${isConfirmed?`<div class="small-label">額面 ${money(r.actualGross)} ／ 予想 ${money(f.total)}</div>`:''}</div><div class="salary-right"><div class="money">${isConfirmed?money(r.actualNet):money(f.total)}</div><div class="small-label">${isConfirmed?'手取り':'予想額面'}</div><div class="actions"><button class="button sm" data-act="entry" data-employer="${esc(e.id)}" data-id="${r?esc(r.id):''}">${r?'編集':'修正・入力'}</button>${r?`<button class="button sm danger" data-act="remove-entry" data-id="${esc(r.id)}" aria-label="${esc(e.name)}の入力を削除">削除</button>`:''}</div></div></div>`}
 
 function home(){
  const m=ui.month,rows=rowsFor(m),t=totals(rows);
@@ -207,7 +245,7 @@ function taxPage(){const y=ui.year,r=taxProjection(y),p=r.p;
 
 function settingsPage(){return topbar('settings','設定',`<button class="button primary" data-act="employer">＋ 勤務先</button>`)+`
  <div class="settings-grid"><section class="card"><div class="card-heading"><h2>勤務先</h2><span class="pill gray">${data.employers.length}件</span></div>
- ${data.employers.length?data.employers.map(e=>`<div class="setting-row"><div style="min-width:0"><b>${esc(e.name)}</b> <span class="tag">${kindName(e.kind)}</span><small>${e.kind==='full'?`基本給 ${money(e.base)}`:e.kind==='weekly'?`${e.weekday===''?'曜日未設定':DAYNAMES[e.weekday]+'曜'}・${e.holiday==='on'?'祝日勤務':'祝日休み'}／${money(e.daily)}`:'月額手入力'}</small></div><div class="actions"><button class="button sm" data-act="employer" data-id="${esc(e.id)}">編集</button><button class="button sm danger" data-act="remove-employer" data-id="${esc(e.id)}">削除</button></div></div>`).join(''):'<div class="empty">勤務先がありません</div>'}</section>
+ ${data.employers.length?data.employers.map(e=>`<div class="setting-row"><div style="min-width:0"><b>${esc(e.name)}</b> <span class="tag">${kindName(e.kind)}</span><small>${e.kind==='full'?`基本給 ${money(e.base)}`:e.kind==='weekly'?`${e.weekday===''?'曜日未設定':DAYNAMES[e.weekday]+'曜'}・${e.holiday==='on'?'祝日勤務':'祝日休み'}／${money(e.daily)}`:'月額手入力'}</small><small>${`締め ${dayName(e.closeDay??32)} ／ 支払 ${dayName(e.payday??0)}（${lagName(e.lag)}）`}</small></div><div class="actions"><button class="button sm" data-act="employer" data-id="${esc(e.id)}">編集</button><button class="button sm danger" data-act="remove-employer" data-id="${esc(e.id)}">削除</button></div></div>`).join(''):'<div class="empty">勤務先がありません</div>'}</section>
  <section class="card"><div class="card-heading"><h2>データ</h2></div>
  <div class="setting-row"><b>バックアップ</b><button class="button sm" data-act="export">保存</button></div>
  <div class="setting-row"><b>復元</b><button class="button sm" data-act="import">読込</button></div>
@@ -220,11 +258,13 @@ function render(){nav();$('#app').innerHTML=ui.tab==='home'?home():ui.tab==='yea
 function modal(title,html,wide=false){$('#modal-root').innerHTML=`<div class="modal-wrap" id="modal-wrap"><div class="modal" style="${wide?'width:min(100%,720px)':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-top"><h2>${esc(title)}</h2><button class="button sm" data-act="close" aria-label="閉じる">× 閉じる</button></div>${html}</div></div>`}
 function closeModal(){ui.modal=null;$('#modal-root').innerHTML=''}
 function employerModal(idv='',prefKind=''){
- const e=getEmployer(idv)||{id:'',name:'',kind:prefKind||'spot',weekday:'',holiday:'off',startMonth:'',endMonth:'',daily:0,travelPer:0,base:0,overtime:0,bonus:0,travel:0,other:0,lag:0,health:0,pension:0,care:0,employment:0,dc:0,resident:0};ui.modal={kind:'employer',id:idv};
+ const e=getEmployer(idv)||{id:'',name:'',kind:prefKind||'spot',weekday:'',holiday:'off',startMonth:'',endMonth:'',daily:0,travelPer:0,base:0,overtime:0,bonus:0,travel:0,other:0,lag:0,closeDay:32,payday:0,health:0,pension:0,care:0,employment:0,dc:0,resident:0};ui.modal={kind:'employer',id:idv};
  modal(idv?'勤務先を編集':'勤務先を追加',`<form id="employer-form"><div class="form-grid">
  ${textInput('name','勤務先',e.name)}
  ${selectInput('kind','勤務形態',[['full','常勤'],['weekly','定期非常勤'],['spot','スポット']],e.kind)}
- ${selectInput('lag','振込まで',[['0','当月'],['1','翌月'],['2','翌々月'],['3','3か月後']],e.lag)}
+ ${selectInput('closeDay','締め日',dayOptions(),e.closeDay??32)}
+ ${selectInput('lag','支払月',[['0','当月'],['1','翌月'],['2','翌々月'],['3','3か月後']],e.lag)}
+ ${selectInput('payday','支払日',dayOptions(true),e.payday??0)}
  <div class="field"><label>開始月</label><input type="month" name="startMonth" class="control" value="${esc(e.startMonth||'')}"></div>
  <div class="field"><label>終了月</label><input type="month" name="endMonth" class="control" value="${esc(e.endMonth||'')}"></div>
  </div><div id="employer-weekly" class="emp-specific"><div class="divider"></div><h3 class="subheading">勤務条件</h3><div class="form-grid">
@@ -241,17 +281,17 @@ function employerModal(idv='',prefKind=''){
 }
 
 function updateEmpFields(){const kind=$('#employer-form')?.elements.kind.value;for(const k of ['full','weekly','spot']){const el=$(`#employer-${k}`);if(el)el.classList.toggle('hidden',k!==kind)}}
-function saveEmployer(f){const name=f.elements.name.value.trim(),kind=f.elements.kind.value;if(!name)throw Error('勤務先名を入力してください。');if(!['full','weekly','spot'].includes(kind))throw Error('勤務形態が不正です。');const startMonth=f.elements.startMonth.value,endMonth=f.elements.endMonth.value;if((startMonth&&!validMonth(startMonth))||(endMonth&&!validMonth(endMonth))||(startMonth&&endMonth&&endMonth<startMonth))throw Error('勤務先の開始月・終了月を確認してください');const old=getEmployer(ui.modal?.id),e={id:old?.id||id(),name,kind,lag:takeNum(f,'lag'),startMonth,endMonth,weekday:f.elements.weekday.value,holiday:f.elements.holiday.value};
+function saveEmployer(f){const name=f.elements.name.value.trim(),kind=f.elements.kind.value;if(!name)throw Error('勤務先名を入力してください。');if(!['full','weekly','spot'].includes(kind))throw Error('勤務形態が不正です。');const startMonth=f.elements.startMonth.value,endMonth=f.elements.endMonth.value;if((startMonth&&!validMonth(startMonth))||(endMonth&&!validMonth(endMonth))||(startMonth&&endMonth&&endMonth<startMonth))throw Error('勤務先の開始月・終了月を確認してください');const old=getEmployer(ui.modal?.id),e={id:old?.id||id(),name,kind,lag:takeNum(f,'lag'),closeDay:takeNum(f,'closeDay'),payday:takeNum(f,'payday'),startMonth,endMonth,weekday:f.elements.weekday.value,holiday:f.elements.holiday.value};
  for(const n of ['daily','travelPer','base','overtime','bonus','travel','other','health','pension','care','employment','dc','resident'])e[n]=takeNum(f,n);
- if(e.lag>3)throw Error('振込までの月数を確認してください');if(old)Object.assign(old,e);else data.employers.push(e);
+ if(e.lag>3||!e.closeDay||e.closeDay>32||e.payday>32)throw Error('締め日・支払日を確認してください');if(old)Object.assign(old,e);else data.employers.push(e);
  save();closeModal();render();toast('勤務先を保存しました');if(!old&&e.kind==='spot'&&ui.pendingSpot){ui.pendingSpot=false;entryModal(e.id)}}
 function entryModal(employerId,entryId=''){
  const e=getEmployer(employerId),r=entryId?getEntry(entryId):null;
  if(!e){toast('勤務先が見つかりません');return}
  const m=r?.month||ui.month;ui.modal={kind:'entry',id:r?.id||'',employerId};const f=forecast(e,m,r);
  const fields=e.kind==='weekly'?`
-  <div class="field"><label>勤務回数</label><div class="preview"><span id="weekly-desc">${esc(f.detail.workMonth)}</span><strong id="weekly-count">${f.detail.count===null?'未設定':f.detail.count+'回'}</strong></div></div>
-  ${moneyInput('daysOverride','回数変更',r?.daysOverride,'空欄で自動計算',true)}
+  <div class="field"><label>自動計算</label><div class="preview"><span id="weekly-desc">${esc(f.detail.label)}</span><strong id="weekly-count">${f.detail.count===null?'未設定':f.detail.count+'回'}</strong></div></div>
+  ${moneyInput('daysOverride','勤務回数を変更',r?.daysOverride,'空欄で自動',true)}
   ${moneyInput('daily','日給',has(r?.daily)?r.daily:e.daily)}
   ${moneyInput('travelPer','交通費／回',has(r?.travelPer)?r.travelPer:e.travelPer)}
   ${moneyInput('forecastExtra','その他支給',r?.forecastExtra)}`:
@@ -263,7 +303,10 @@ function entryModal(employerId,entryId=''){
  const hasDetails=Boolean(r&&['actualTravel','incomeTax','health','pension','care','employment','dc','resident','otherDeduction','memo'].some(k=>has(r[k])&&r[k]!==0));
  modal(`${e.name} · ${monthLabel(m)}`,`<form id="entry-form">
  <h3 class="subheading">予想</h3><div class="form-grid">${fields}
- <div class="field full">${moneyInput('forecastOverride','予想額面（直接入力）',r?.forecastOverride,'空欄で自動計算',true)}</div></div>
+ </div>
+ <div class="salary-override"><div class="salary-auto-info">${e.kind==='weekly'?'毎月自動・個別修正可':'月別に修正可'}${paydayInfo(e,m)?`　／　支払 ${esc(paydayInfo(e,m).label)}`:''}</div>
+ <div class="form-grid"><div class="field full"><label for="f-forecastOverride">予想額面を修正</label><input class="control" id="f-forecastOverride" name="forecastOverride" type="number" inputmode="numeric" min="0" step="1" value="${has(r?.forecastOverride)?esc(r.forecastOverride):''}" placeholder="自動 ${fmt(f.total)}円"></div></div>
+ <button type="button" class="button sm" data-act="clear-forecast">自動計算に戻す</button></div>
  <div class="preview" style="margin-top:12px"><span>予想額面</span><strong id="forecast-preview">${money(f.total)}</strong></div>
  <div class="divider"></div><h3 class="subheading">確定</h3><div class="form-grid">
  ${moneyInput('actualGross','確定額面',r?.actualGross,'',true)}
@@ -311,7 +354,7 @@ function deleteEntry(entryId){const e=getEntry(entryId);if(!e||!confirm(`この�
 function deleteEmployer(eid){const e=getEmployer(eid);if(!e)return;const n=data.entries.filter(r=>r.employerId===eid).length;if(!confirm(`「${e.name}」を削除しますか？\n紐づく月別の給与入力 ${n}件も削除されます。`))return;data.entries=data.entries.filter(r=>r.employerId!==eid);data.employers=data.employers.filter(x=>x.id!==eid);save();render();toast('勤務先と紐づく給与を削除しました')}
 function addSpot(){const spots=data.employers.filter(e=>e.kind==='spot');if(!spots.length){ui.pendingSpot=true;employerModal('','spot');return}if(spots.length===1){entryModal(spots[0].id);return}modal('スポット勤務先',`<div class="field"><label>勤務先</label><select id="spot-select" class="control">${spots.map(e=>`<option value="${esc(e.id)}">${esc(e.name)}</option>`).join('')}</select></div><div class="modal-bottom"><button class="button" data-act="employer" data-kind="spot">＋ 勤務先</button><button class="button primary" data-act="choose-spot">登録</button></div>`)}
 function saveTax(f){const y=ui.year,p={};for(const n of ['taxableOverride','incomeAdjustment','extraSocial','extraDC','otherDeduction','taxCredit','futureWithholding','residentTaxOverride'])p[n]=optNum(f,n);data.taxProfiles[String(y)]=p;data.donations[String(y)]=takeNum(f,'donation');save();render();toast('税金・ふるさと納税の条件を保存しました')}
-const actionMap={tab:(btn)=>{ui.tab=btn.dataset.tab;render();window.scrollTo(0,0)},monthmove:(btn)=>{ui.month=moveMonth(ui.month,num(btn.dataset.offset));ui.year=+ui.month.slice(0,4);render()},yearmove:(btn)=>{ui.year=Math.max(2020,Math.min(2032,ui.year+num(btn.dataset.offset)));render()},'goto-month':btn=>{ui.month=btn.dataset.month;ui.year=+ui.month.slice(0,4);ui.tab='home';render();window.scrollTo(0,0)},entry:btn=>entryModal(btn.dataset.employer,btn.dataset.id||''),'add-spot':addSpot,employer:btn=>{ui.pendingSpot=btn.dataset.kind==='spot';employerModal(btn.dataset.id||'',btn.dataset.kind||'')},close:closeModal,'remove-entry':btn=>deleteEntry(btn.dataset.id),'remove-employer':btn=>deleteEmployer(btn.dataset.id),export:exportJSON,import:()=>$('#json-upload').click(),csv:csvExport,reset:()=>{if(!confirm('このブラウザに保存した本人用の給与データをすべて削除して初期化しますか？\n取り消しはできません。先にJSONバックアップを保存してください。'))return;data=defaultDB();save();render();toast('初期化しました')},'choose-spot':()=>{const id=$('#spot-select').value;closeModal();entryModal(id)}};
+const actionMap={tab:(btn)=>{ui.tab=btn.dataset.tab;render();window.scrollTo(0,0)},monthmove:(btn)=>{ui.month=moveMonth(ui.month,num(btn.dataset.offset));ui.year=+ui.month.slice(0,4);render()},yearmove:(btn)=>{ui.year=Math.max(2020,Math.min(2032,ui.year+num(btn.dataset.offset)));render()},'goto-month':btn=>{ui.month=btn.dataset.month;ui.year=+ui.month.slice(0,4);ui.tab='home';render();window.scrollTo(0,0)},entry:btn=>entryModal(btn.dataset.employer,btn.dataset.id||''),'add-spot':addSpot,employer:btn=>{ui.pendingSpot=btn.dataset.kind==='spot';employerModal(btn.dataset.id||'',btn.dataset.kind||'')},close:closeModal,'remove-entry':btn=>deleteEntry(btn.dataset.id),'remove-employer':btn=>deleteEmployer(btn.dataset.id),export:exportJSON,import:()=>$('#json-upload').click(),csv:csvExport,reset:()=>{if(!confirm('このブラウザに保存した本人用の給与データをすべて削除して初期化しますか？\n取り消しはできません。先にJSONバックアップを保存してください。'))return;data=defaultDB();save();render();toast('初期化しました')},'choose-spot':()=>{const id=$('#spot-select').value;closeModal();entryModal(id)},'clear-forecast':()=>{const field=$('#f-forecastOverride');if(field){field.value='';updateForecastPreview()}}};
 document.addEventListener('click',ev=>{const btn=ev.target.closest('[data-act]');if(!btn)return;const fn=actionMap[btn.dataset.act];if(fn){ev.preventDefault();try{fn(btn)}catch(err){toast(err?.message||'操作に失敗しました')}}});
 document.addEventListener('submit',ev=>{const f=ev.target;if(!['employer-form','entry-form','tax-form'].includes(f.id))return;ev.preventDefault();try{if(f.id==='employer-form')saveEmployer(f);else if(f.id==='entry-form')saveEntry(f);else saveTax(f)}catch(err){alert(err?.message||'保存できませんでした')}});
 document.addEventListener('change',ev=>{const idv=ev.target.id;if(idv==='select-month'&&validMonth(ev.target.value)){ui.month=ev.target.value;ui.year=+ui.month.slice(0,4);render()}else if(idv==='select-year'){ui.year=+ev.target.value;render()}else if(idv==='f-kind')updateEmpFields();});
