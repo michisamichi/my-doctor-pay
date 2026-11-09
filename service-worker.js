@@ -1,5 +1,23 @@
-const CACHE='mydoctorpay-clean-v14-20261109';
+const CACHE='drpay-personal-v151-20261109';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
-self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())));
-self.addEventListener('activate',event=>event.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('mydoctorpay-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));
-self.addEventListener('fetch',event=>{if(event.request.method!=='GET'||new URL(event.request.url).origin!==self.location.origin)return;event.respondWith(fetch(event.request).then(response=>{if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(event.request,copy)).catch(()=>{})}return response}).catch(()=>caches.match(event.request)));});
+const OLD_CACHES=new Set([
+ 'mydoctorpay-v1-20261109','mydoctorpay-v1.1-20261109',
+ 'mydoctorpay-v1.2-20261109','mydoctorpay-v1.3-20261109',
+ 'mydoctorpay-clean-v14-20261109','drpay-v15-20261109b'
+]);
+const OWN_URLS=new Set(ASSETS.map(path=>new URL(path,self.registration.scope).href));
+self.addEventListener('install',event=>event.waitUntil(
+ caches.open(CACHE).then(cache=>cache.addAll(ASSETS)).then(()=>self.skipWaiting())
+));
+self.addEventListener('activate',event=>event.waitUntil(Promise.all([
+ caches.keys().then(keys=>Promise.all(keys.filter(key=>OLD_CACHES.has(key)).map(key=>caches.delete(key)))),
+ self.clients.claim()
+])));
+self.addEventListener('fetch',event=>{
+ const request=event.request;
+ if(request.method!=='GET'||!OWN_URLS.has(request.url))return;
+ event.respondWith(fetch(request).then(response=>{
+  if(response.ok){const copy=response.clone();caches.open(CACHE).then(cache=>cache.put(request,copy)).catch(()=>{});}
+  return response;
+ }).catch(()=>caches.match(request)));
+});
