@@ -59,7 +59,24 @@
 .salary-override .field input{background:#fff}
 .salary-override .button{margin-top:5px}
 .work-dates{font-size:11px;color:#718093;margin-top:5px}
-</style></head><body><div class="shell"><aside class="sidebar"><div class="brand"><div class="brand-mark">＋</div><div><strong>マイドクターペイ</strong></div></div><div id="side-nav"></div><div class="sidebar-bottom"><div>v1.2</div></div></aside><div class="mobile-top"><div class="brand-small"><i>＋</i>マイドクターペイ</div></div><main class="main" id="app"></main><nav class="mobile-nav" id="mobile-nav" aria-label="モバイルメニュー"></nav></div><div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div><input id="json-upload" type="file" accept=".json,application/json" hidden>
+
+/* v1.3: compact payment-date list (no calendar) */
+.summary-meta{display:flex;gap:15px;flex-wrap:wrap;color:var(--muted);font-size:12px;margin:0 0 13px 3px}
+.payment-group{padding:16px 21px}
+.payment-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.payment-head h2{font-size:18px}
+.payment-total{text-align:right;display:flex;flex-direction:column;align-items:flex-end;line-height:1.35}
+.payment-total strong{font-size:23px;color:var(--teal);font-variant-numeric:tabular-nums}
+.payment-total span{font-size:11px;color:var(--muted)}
+.payment-detail{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #edf1f4}
+.payment-detail:last-child{border-bottom:0;padding-bottom:0}
+.payment-name{display:flex;flex-direction:column;min-width:0}
+.payment-name b{overflow-wrap:anywhere}
+.payment-value{display:flex;align-items:center;justify-content:flex-end;gap:12px;text-align:right;flex-wrap:wrap}
+.payment-value strong{font-size:15px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.payment-date-field{margin-bottom:15px}
+@media(max-width:740px){.payment-group{padding:14px 15px}.payment-value{gap:6px}.payment-total strong{font-size:20px}.mobile-nav button .nav-icon{width:20px;height:20px}.mobile-nav button span{font-size:10px}}
+</style></head><body><div class="shell"><aside class="sidebar"><div class="brand"><div class="brand-mark">＋</div><div><strong>マイドクターペイ</strong></div></div><div id="side-nav"></div><div class="sidebar-bottom"><div>v1.3</div></div></aside><div class="mobile-top"><div class="brand-small"><i>＋</i>マイドクターペイ</div></div><main class="main" id="app"></main><nav class="mobile-nav" id="mobile-nav" aria-label="モバイルメニュー"></nav></div><div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div><input id="json-upload" type="file" accept=".json,application/json" hidden>
 <script>
 (()=>{'use strict';
 const KEY='mydoctorpay_salary_v1',V=1,MONTHS=['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
@@ -94,7 +111,9 @@ const lagName=lag=>['当月','翌月','翌々月','3か月後'][num(lag)]||`${la
 
 function firstNthMonday(y,m,n){const first=new Date(y,m-1,1).getDay();return 1+(8-first)%7+(n-1)*7}
 function dayKey(y,m,d){return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`}
-function holidaySet(y){const h=new Set(),add=(m,d)=>h.add(dayKey(y,m,d));if(y<2020||y>2099)return null;
+const holidayCache=new Map();
+function holidaySet(y){if(!holidayCache.has(y))holidayCache.set(y,buildHolidaySet(y));return holidayCache.get(y)}
+function buildHolidaySet(y){const h=new Set(),add=(m,d)=>h.add(dayKey(y,m,d));if(y<2020||y>2099)return null;
  add(1,1);add(1,firstNthMonday(y,1,2));add(2,11);add(2,23);add(3,Math.floor(20.8431+.242194*(y-1980)-Math.floor((y-1980)/4)));add(4,29);add(5,3);add(5,4);add(5,5);
  if(y===2020){add(7,23);add(7,24);add(8,10)}else if(y===2021){add(7,22);add(7,23);add(8,8)}else{add(7,firstNthMonday(y,7,3));add(8,11)}
  add(9,firstNthMonday(y,9,3));add(9,Math.floor(23.2488+.242194*(y-1980)-Math.floor((y-1980)/4)));
@@ -119,10 +138,19 @@ function payrollPeriod(e,depositMonth){
  const start=new Date(previous.getFullYear(),previous.getMonth(),previous.getDate()+1);
  return {start,end,closeMonth,label:`${shortDate(start)}〜${shortDate(end)}`};
 }
-function paydayInfo(e,depositMonth){
+function validPaymentDate(date,month){
+ if(typeof date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(date)||date.slice(0,7)!==month)return false;
+ const d=new Date(`${date}T12:00:00`);
+ return !Number.isNaN(d.getTime())&&dateISO(d)===date;
+}
+function paydayInfo(e,depositMonth,entry=null){
+ if(validPaymentDate(entry?.depositDate,depositMonth)){
+  const d=new Date(`${entry.depositDate}T12:00:00`);
+  return {date:d,label:`${dateISO(d)} 振込日`,manual:true};
+ }
  const pd=num(e.payday);if(!pd)return null;
  const [y,m]=depositMonth.split('-').map(Number),d=new Date(y,m-1,limitDay(y,m,pd));
- return {date:d,label:`${dateISO(d)} 支払予定`};
+ return {date:d,label:`${dateISO(d)} 支払予定`,manual:false};
 }
 function weeklyCount(employer,depositMonth,override=null){
  const period=payrollPeriod(employer,depositMonth),workMonth=period.closeMonth;
@@ -152,11 +180,11 @@ function rowTaxable(row){if(confirmed(row.r))return Math.max(0,num(row.r.actualG
 function totals(rows){return rows.reduce((a,row)=>{a.forecast+=row.f.total;a.adopted+=rowGross(row);a.net+=confirmed(row.r)?num(row.r.actualNet):0;a.confirmed+=confirmed(row.r)?1:0;a.taxable+=rowTaxable(row);a.count++;return a},{forecast:0,adopted:0,net:0,confirmed:0,taxable:0,count:0})}
 function annualRows(y){return Array.from({length:12},(_,i)=>rowsFor(`${y}-${String(i+1).padStart(2,'0')}`))}
 function yearTotal(y){return totals(annualRows(y).flat())}
-function sumDeductions(r){return ['incomeTax','resident','health','pension','care','employment','dc','otherDeduction'].reduce((s,k)=>s+num(r?.[k]),0)}
-const MENUS=[['home','home','給与'],['year','chart','年間'],['tax','tax','税金'],['settings','settings','設定']];
+const MENUS=[['home','home','給与'],['month','list','月まとめ'],['year','chart','年間'],['tax','tax','税金'],['settings','settings','設定']];
 // The previous app uses clear, fine-stroke navigation symbols. Match that style without glyph-font dependence.
 const ICONS={
  home:'<path d="m3 10 9-7 9 7"/><path d="M5 9.5V21h14V9.5"/><path d="M9 21v-7h6v7"/>',
+ list:'<path d="M9 6h12M9 12h12M9 18h12"/><path d="M3 6h2M3 12h2M3 18h2"/>',
  chart:'<path d="M4 20V11"/><path d="M10 20V4"/><path d="M16 20v-9"/><path d="M22 20H2"/>',
  tax:'<rect x="5" y="2.5" width="14" height="19" rx="2"/><path d="M8.5 7h7"/><path d="M8.5 11h2"/><path d="M13.5 11h2"/><path d="M8.5 15h2"/><path d="M13.5 15h2"/>',
  settings:'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-1.9 1.9-.06-.06A1.65 1.65 0 0 0 16 18.4a1.65 1.65 0 0 0-1 .74L14 21h-4l-.97-1.86A1.65 1.65 0 0 0 8 18.4a1.65 1.65 0 0 0-1.82.33l-.06.06-1.9-1.9.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-.74-1L2 13v-2l1.86-.97A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06 1.9-1.9.06.06A1.65 1.65 0 0 0 8 5.6a1.65 1.65 0 0 0 1-.74L10 3h4l.97 1.86A1.65 1.65 0 0 0 16 5.6a1.65 1.65 0 0 0 1.82-.33l.06-.06 1.9 1.9-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 .74 1L22 11v2l-1.86.97a1.65 1.65 0 0 0-.74 1.03Z"/>'
@@ -172,7 +200,7 @@ function yearControl(){return `<div class="month-controls"><button class="button
 function topbar(k,title,actions=''){return `<div class="topbar"><div><h1>${title}</h1></div><div class="top-actions">${actions}</div></div>`}
 function rowStatus(row){return confirmed(row.r)?'<span class="pill">確定</span>':row.r?'<span class="pill amber">予想</span>':'<span class="pill gray">自動</span>'}
 function rowTitle(row){return `${esc(row.e.name)} <span class="tag">${kindName(row.e.kind)}</span>`}
-function rowSummary(row){const r=row.r;const notes=[];if(row.e.kind==='weekly'){const d=row.f.detail;notes.push(`${esc(d.label)}・${d.count===null?'曜日未設定':d.count+'回'}`)}const pay=paydayInfo(row.e,ui.month);if(pay)notes.push(`${shortDate(pay.date)}支払予定`);if(r?.memo)notes.push(esc(r.memo));return notes.join(' · ')}
+function rowSummary(row){const r=row.r;const notes=[];if(row.e.kind==='weekly'){const d=row.f.detail;notes.push(`${esc(d.label)}・${d.count===null?'曜日未設定':d.count+'回'}`)}const pay=paydayInfo(row.e,ui.month,r);if(pay)notes.push(`${shortDate(pay.date)}支払予定`);if(r?.memo)notes.push(esc(r.memo));return notes.join(' · ')}
 function rowLine(row){const {e,r,f}=row;const isConfirmed=confirmed(r);return `<div class="rowline salary-row"><div class="lead"><div class="names">${rowTitle(row)}</div><div class="sub">${rowStatus(row)} ${rowSummary(row)}</div>${isConfirmed?`<div class="small-label">額面 ${money(r.actualGross)} ／ 予想 ${money(f.total)}</div>`:''}</div><div class="salary-right"><div class="money">${isConfirmed?money(r.actualNet):money(f.total)}</div><div class="small-label">${isConfirmed?'手取り':'予想額面'}</div><div class="actions"><button class="button sm" data-act="entry" data-employer="${esc(e.id)}" data-id="${r?esc(r.id):''}">${r?'編集':'修正・入力'}</button>${r?`<button class="button sm danger" data-act="remove-entry" data-id="${esc(r.id)}" aria-label="${esc(e.name)}の入力を削除">削除</button>`:''}</div></div></div>`}
 
 function home(){
@@ -191,6 +219,33 @@ function home(){
  </section>`;
 }
 
+
+
+// 振込月単位の予想額面を、振込日（勤務先設定または月別修正）ごとに表示する。
+// 日付未設定の給与は推測で割り振らず、別グループにする。
+function paymentGroups(month){
+ const groups=new Map();
+ for(const row of rowsFor(month)){
+  const info=paydayInfo(row.e,month,row.r),key=info?dateISO(info.date):'';
+  if(!groups.has(key))groups.set(key,[]);
+  groups.get(key).push({...row,payment:info});
+ }
+ return [...groups].sort((a,b)=>!a[0]?1:!b[0]?-1:a[0].localeCompare(b[0]))
+  .map(([date,rows])=>({date,rows,forecast:rows.reduce((s,row)=>s+row.f.total,0),net:rows.reduce((s,row)=>s+(confirmed(row.r)?num(row.r.actualNet):0),0)}));
+}
+function monthSummary(){
+ const m=ui.month,groups=paymentGroups(m),t=totals(rowsFor(m));
+ const scheduled=groups.filter(g=>g.date),missing=groups.find(g=>!g.date);
+ return topbar('month','月のまとめ',monthControl())+`
+ <section class="hero compact-hero"><h2>${monthLabel(m)}の予想額面</h2><div class="hero-number">${money(t.forecast)}</div></section>
+ <div class="summary-meta"><span>振込日 ${scheduled.length}日</span>${missing?`<span>日付未設定 ${missing.rows.length}件</span>`:''}</div>
+ ${groups.length?groups.map(group=>`<section class="card payment-group" style="margin-bottom:12px">
+ <div class="payment-head"><div><h2>${group.date?Number(group.date.slice(8))+'日':'振込日未設定'}</h2>${group.date?`<span class="small-label">${group.rows.some(row=>!row.payment?.manual)?'支払予定':''}</span>`:''}</div>
+ <div class="payment-total"><strong>${money(group.forecast)}</strong><span>予想額面</span></div></div>
+ ${group.rows.map(row=>`<div class="payment-detail"><div class="payment-name"><b>${esc(row.e.name)}</b>${confirmed(row.r)?`<span class="small-label">確定手取り ${money(row.r.actualNet)}</span>`:''}</div><div class="payment-value"><strong>${money(row.f.total)}</strong><button class="button sm" data-act="entry" data-employer="${esc(row.e.id)}" data-id="${row.r?esc(row.r.id):''}">編集</button></div></div>`).join('')}
+ </section>`).join(''):'<div class="empty">給与の登録がありません</div>'}
+ ${missing?'<div class="note">振込日は「編集」または「設定 → 勤務先」で登録できます。</div>':''}`;
+}
 
 
 function yearPage(){
@@ -254,7 +309,7 @@ function settingsPage(){return topbar('settings','設定',`<button class="button
  <p class="note">端末ごとに保存されます。移行時はバックアップを使用してください。</p>
  </section></div>`}
 
-function render(){nav();$('#app').innerHTML=ui.tab==='home'?home():ui.tab==='year'?yearPage():ui.tab==='tax'?taxPage():settingsPage();}
+function render(){nav();$('#app').innerHTML=ui.tab==='home'?home():ui.tab==='month'?monthSummary():ui.tab==='year'?yearPage():ui.tab==='tax'?taxPage():settingsPage();}
 function modal(title,html,wide=false){$('#modal-root').innerHTML=`<div class="modal-wrap" id="modal-wrap"><div class="modal" style="${wide?'width:min(100%,720px)':''}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-top"><h2>${esc(title)}</h2><button class="button sm" data-act="close" aria-label="閉じる">× 閉じる</button></div>${html}</div></div>`}
 function closeModal(){ui.modal=null;$('#modal-root').innerHTML=''}
 function employerModal(idv='',prefKind=''){
@@ -302,6 +357,7 @@ function entryModal(employerId,entryId=''){
   ${moneyInput('other','その他支給',has(r?.other)?r.other:e.kind==='spot'?0:e.other)}`;
  const hasDetails=Boolean(r&&['actualTravel','incomeTax','health','pension','care','employment','dc','resident','otherDeduction','memo'].some(k=>has(r[k])&&r[k]!==0));
  modal(`${e.name} · ${monthLabel(m)}`,`<form id="entry-form">
+ <div class="field payment-date-field"><label for="f-depositDate">振込日（個別指定）</label><input class="control" id="f-depositDate" name="depositDate" type="date" min="${m}-01" max="${m}-${String(new Date(+m.slice(0,4),+m.slice(5),0).getDate()).padStart(2,'0')}" value="${validPaymentDate(r?.depositDate,m)?esc(r.depositDate):''}"><span class="help">${paydayInfo(e,m)?.label?`通常 ${shortDate(paydayInfo(e,m).date)}`:'未入力なら日付未設定'}</span></div>
  <h3 class="subheading">予想</h3><div class="form-grid">${fields}
  </div>
  <div class="salary-override"><div class="salary-auto-info">${e.kind==='weekly'?'毎月自動・個別修正可':'月別に修正可'}${paydayInfo(e,m)?`　／　支払 ${esc(paydayInfo(e,m).label)}`:''}</div>
@@ -326,7 +382,10 @@ function entryModal(employerId,entryId=''){
  updateForecastPreview();
 }
 
-function entryFormValues(f){const emp=getEmployer(ui.modal.employerId);const out={};if(emp.kind==='weekly'){out.daily=takeNum(f,'daily');out.travelPer=takeNum(f,'travelPer');out.forecastExtra=takeNum(f,'forecastExtra');out.daysOverride=optNum(f,'daysOverride')}
+function entryFormValues(f){const emp=getEmployer(ui.modal.employerId);const out={};
+ const m=getEntry(ui.modal.id)?.month||ui.month,date=f.elements.depositDate.value;
+ if(date&&!validPaymentDate(date,m))throw Error('振込日は対象の振込月内の日付を選択してください。');
+ out.depositDate=date;if(emp.kind==='weekly'){out.daily=takeNum(f,'daily');out.travelPer=takeNum(f,'travelPer');out.forecastExtra=takeNum(f,'forecastExtra');out.daysOverride=optNum(f,'daysOverride')}
  else{for(const n of ['base','overtime','bonus','travel','other'])if(f.elements[n])out[n]=takeNum(f,n)}
  out.forecastOverride=optNum(f,'forecastOverride');out.actualGross=optNum(f,'actualGross');out.actualNet=optNum(f,'actualNet');if((out.actualGross===null)!==(out.actualNet===null))throw Error('確定額面と確定手取りは両方入力するか、両方空欄にしてください。');
  if(out.actualGross!==null&&out.actualNet>out.actualGross)throw Error('確定手取りが確定額面を超えています。交通費などを含む支給総額を入力してください。');
@@ -347,7 +406,7 @@ function updateForecastPreview(){
  const f=forecast(e,getEntry(ui.modal.id)?.month||ui.month,d),el=$('#forecast-preview');if(el)el.textContent=money(f.total);
 }
 
-function csvExport(){const y=ui.year,head=['振込月','勤務先','勤務形態','予想額面','確定額面','確定手取り','確定非課税交通費','源泉所得税','健康保険','厚生年金','介護保険','雇用保険','本人拠出DC','住民税','その他控除','メモ'];let lines=[head];for(let i=1;i<=12;i++){const m=`${y}-${String(i).padStart(2,'0')}`;for(const row of rowsFor(m)){const r=row.r||{};lines.push([m,row.e.name,kindName(row.e.kind),row.f.total,has(r.actualGross)?r.actualGross:'',has(r.actualNet)?r.actualNet:'',r.actualTravel??'',r.incomeTax??'',r.health??'',r.pension??'',r.care??'',r.employment??'',r.dc??'',r.resident??'',r.otherDeduction??'',r.memo||''])}}download('\ufeff'+lines.map(line=>line.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n'),'mydoctorpay-'+y+'.csv','text/csv;charset=utf-8');toast('CSVを保存しました')}
+function csvExport(){const y=ui.year,head=['振込月','振込日','勤務先','勤務形態','予想額面','確定額面','確定手取り','確定非課税交通費','源泉所得税','健康保険','厚生年金','介護保険','雇用保険','本人拠出DC','住民税','その他控除','メモ'];let lines=[head];for(let i=1;i<=12;i++){const m=`${y}-${String(i).padStart(2,'0')}`;for(const row of rowsFor(m)){const r=row.r||{};lines.push([m,paydayInfo(row.e,m,row.r)?.date?dateISO(paydayInfo(row.e,m,row.r).date):'',row.e.name,kindName(row.e.kind),row.f.total,has(r.actualGross)?r.actualGross:'',has(r.actualNet)?r.actualNet:'',r.actualTravel??'',r.incomeTax??'',r.health??'',r.pension??'',r.care??'',r.employment??'',r.dc??'',r.resident??'',r.otherDeduction??'',r.memo||''])}}download('\ufeff'+lines.map(line=>line.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(',')).join('\r\n'),'mydoctorpay-'+y+'.csv','text/csv;charset=utf-8');toast('CSVを保存しました')}
 function download(text,filename,mime){const blob=new Blob([text],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000)}
 function exportJSON(){download(JSON.stringify(data,null,2),'mydoctorpay-backup-'+new Date().toISOString().slice(0,10)+'.json','application/json');toast('バックアップを保存しました')}
 function deleteEntry(entryId){const e=getEntry(entryId);if(!e||!confirm(`この月の「${getEmployer(e.employerId)?.name||'給与'}」を削除しますか？`))return;data.entries=data.entries.filter(x=>x.id!==entryId);save();render();toast('入力済み給与を削除しました')}
