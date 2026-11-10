@@ -1,7 +1,7 @@
-const CACHE='drpay-personal-v151-20261109';
+const CACHE='drpay-personal-v152-20261110';
 const ASSETS=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png'];
 const OLD_CACHES=new Set([
- 'mydoctorpay-v1-20261109','mydoctorpay-v1.1-20261109',
+ 'drpay-personal-v151-20261109','mydoctorpay-v1-20261109','mydoctorpay-v1.1-20261109',
  'mydoctorpay-v1.2-20261109','mydoctorpay-v1.3-20261109',
  'mydoctorpay-clean-v14-20261109','drpay-v15-20261109b'
 ]);

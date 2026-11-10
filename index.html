@@ -19,14 +19,47 @@
 .salary-left{min-width:0;flex:1;display:flex;flex-direction:column;gap:1px}.salary-name{font-size:14px;font-weight:750;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.salary-details{font-size:11px;color:var(--muted)}
 .salary-tag{font-size:10px;font-weight:600;color:var(--teal);margin-left:4px}.salary-tag.verify{color:#ab6d19}
 .salary-right{text-align:right;white-space:nowrap;display:flex;flex-direction:column}.salary-right strong{font-size:15px;font-weight:780;font-variant-numeric:tabular-nums}.salary-right small{font-size:10px}.salary-arrow{font-size:22px;font-weight:300;color:#8a9cad;line-height:1}
-.bar-chart{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:clamp(3px,1vw,13px);padding:16px 0 2px;height:215px;align-items:end;border-bottom:1px solid var(--line)}
-.bar-col{height:100%;display:flex;flex-direction:column;gap:5px;align-items:center;min-width:0;font-size:11px;color:var(--muted)}
-.bar-track{flex:1;width:100%;max-width:38px;display:flex;flex-direction:column;justify-content:flex-end;border-radius:5px 5px 0 0;overflow:hidden}.bar-segment{width:100%;flex-shrink:0;min-height:0}.bar-done{background:#0e5474}.bar-pred{background:#9ad4cb}
-.bar-legend{display:flex;align-items:center;gap:12px;font-size:11px;color:var(--muted)}.bar-legend span{display:flex;gap:5px;align-items:center}.dot{display:block;width:8px;height:8px;border-radius:2px}.dot.done{background:#0e5474}.dot.pred{background:#9ad4cb}
+/* Annual insight — consistent stacked columns with 250k-yen guide lines */
+.annual-chart-card{padding-bottom:17px}
+.annual-chart-card .card-head{margin-bottom:20px}
+.bar-legend{display:flex;align-items:center;gap:14px;font-size:11px;color:var(--muted);font-weight:650}
+.bar-legend span{display:flex;align-items:center;gap:6px}.dot{display:block;width:9px;height:9px;border-radius:3px}.dot.done{background:#136779}.dot.pred{background:#aacfd4}
+.annual-graph{--chart-height:215px;--axis-size:43px;--axis-gap:10px;display:flex;gap:var(--axis-gap);padding:4px 1px 0 0}
+.graph-axis{position:relative;width:var(--axis-size);flex:none;height:var(--chart-height);font-size:10px;font-variant-numeric:tabular-nums;color:#8999aa;text-align:right}
+.graph-axis-label{position:absolute;right:0;transform:translateY(50%);line-height:1;white-space:nowrap}
+.graph-area{position:relative;flex:1;min-width:0;height:var(--chart-height)}
+.graph-line{position:absolute;left:0;right:0;border-top:1px solid #e4ebf1;pointer-events:none;z-index:0}
+.graph-line.base{border-top-color:#ccdbe4}
+.graph-columns{position:absolute;inset:0;display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:clamp(4px,1.1vw,16px);align-items:end;z-index:1}
+.graph-column{height:100%;width:100%;display:flex;justify-content:center;align-items:flex-end;min-width:0}
+.graph-bar{width:100%;max-width:30px;display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden;border-radius:7px 7px 2px 2px;min-height:0;box-shadow:0 1px 4px rgba(16,51,73,.07)}
+.graph-part{width:100%;flex:none}.graph-part.done{background:linear-gradient(180deg,#207c8b 0%,#114d67 100%)}.graph-part.pred{background:#afd6db}
+.graph-months{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:clamp(4px,1.1vw,16px);margin:12px 0 0 calc(var(--axis-size) + var(--axis-gap));font-size:11px;font-weight:650;color:#8798a8;text-align:center;font-variant-numeric:tabular-nums}
+.annual-employers{margin-top:16px}
+.annual-table{width:100%;font-size:12px;border-collapse:collapse;white-space:nowrap;min-width:730px}
+.annual-table th,.annual-table td{padding:12px 9px}.annual-table th{background:#f5f8fb;color:#728397;font-weight:700;border-bottom:1px solid #dfe8ef}.annual-table tbody tr:hover{background:#f8fbfc}
+.annual-table .annual-total-row td{background:#f2f7f9;font-weight:800;border-top:1px solid #d9e5eb}
+.annual-table td:first-child,.annual-table th:first-child{position:sticky;left:0;background:#fff;z-index:1;max-width:180px;min-width:90px;overflow:hidden;text-overflow:ellipsis}
+.annual-table th:first-child{background:#f5f8fb}.annual-table .annual-total-row td:first-child{background:#f2f7f9}
+.annual-mobile{display:none}
+.annual-employer-note{font-size:11px;color:#8795a4;margin:10px 0 0}
+.annual-mobile details{border-bottom:1px solid var(--line)}.annual-mobile details:last-child{border:0}
+.annual-mobile summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;min-height:56px;padding:10px 0}
+.annual-mobile summary::-webkit-details-marker{display:none}
+.annual-mobile .emp-name{font-weight:750;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.annual-mobile .emp-amount{font-variant-numeric:tabular-nums;font-weight:780;white-space:nowrap}
+.annual-mobile .emp-chevron{color:#8798a8;font-size:17px;transform:rotate(0deg);transition:transform .12s}
+.annual-mobile details[open] .emp-chevron{transform:rotate(180deg)}
+.annual-mobile .emp-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px 12px;padding:0 0 16px}
+.annual-mobile .emp-stat{border:1px solid #e9eef2;background:#f9fbfc;border-radius:10px;padding:8px 10px;min-width:0}
+.annual-mobile .emp-stat small{display:block;font-size:10px;color:#8493a2}
+.annual-mobile .emp-stat strong{display:block;font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap}
+.annual-mobile .total-row{display:flex;justify-content:space-between;align-items:center;border-radius:10px;background:#eef6f8;padding:12px;margin-top:8px;font-weight:800}
+@media(max-width:720px){.annual-table-scroll{display:none}.annual-mobile{display:block}.annual-chart-card{padding:17px 12px!important}.annual-graph{--chart-height:188px;--axis-size:34px;--axis-gap:7px}.graph-axis{font-size:9px}.graph-months{font-size:10px}.graph-bar{max-width:28px}.annual-chart-card .card-head{margin-bottom:15px}}
 @media(max-width:980px){.mobile-top{display:flex}}
-@media(max-width:680px){.salary-line{min-height:52px;padding:9px 1px}.salary-right strong{font-size:14px}.salary-name{font-size:13px}.bar-chart{height:175px}}
+@media(max-width:680px){.salary-line{min-height:52px;padding:9px 1px}.salary-right strong{font-size:14px}.salary-name{font-size:13px}}
 </style></head><body>
-<aside class="sidebar"><div class="brand"><div class="mark"><img src="icon-192.png" alt="" width="34" height="34"></div>Dr.Pay</div><nav id="side-nav"></nav><div class="version">v1.5</div></aside>
+<aside class="sidebar"><div class="brand"><div class="mark"><img src="icon-192.png" alt="" width="34" height="34"></div>Dr.Pay</div><nav id="side-nav"></nav><div class="version">v1.5.2</div></aside>
 <div class="mobile-top"><img src="icon-192.png" width="25" height="25" alt=""> Dr.Pay</div><main id="app" class="main"></main><nav id="mobile-nav" class="mobile-nav" aria-label="メニュー"></nav>
 <div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div>
 <input type="file" id="json-upload" accept="application/json,.json" hidden>
@@ -151,16 +184,51 @@ function home(){const rows=salaryRows(ui.month),s=sumRows(rows);return top('給�
  <section class="card"><div class="card-head"><h2>勤務先別</h2><button class="button primary sm" data-action="add-spot">＋ スポット</button></div>${rows.length?rows.map(rowHTML).join(''):'<div class="empty">「設定」で勤務先を登録</div>'}</section>`}
 function monthPage(){const rows=salaryRows(ui.month),groups=new Map();for(const x of rows){const day=x.date?dayISO(x.date):'';if(!groups.has(day))groups.set(day,[]);groups.get(day).push(x)}const items=[...groups].sort((a,b)=>!a[0]?1:!b[0]?-1:a[0].localeCompare(b[0]));const total=sumRows(rows);
  return top('月',monthPicker())+`<div class="hero"><small>${monthText(ui.month)}の予想振込額</small><strong>${money(total.forecast)}</strong></div>`+(items.length?items.map(([day,group])=>`<section class="card summary-block"><div class="summary-title"><h2>${day?Number(day.slice(-2))+'日':'日付未設定'}</h2><strong>${money(group.reduce((s,x)=>s+x.f.total,0))}</strong></div>${group.map(x=>`<div class="summary-item"><div><b>${esc(x.e.name)}</b><div class="sub">${actual(x.e,x.r)?'確定':'予想'} · ${monthText(x.scheduled)}分</div></div><div class="actions"><span class="money">${money(x.f.total)}</span><button class="button sm" data-action="entry" data-eid="${esc(x.e.id)}" data-month="${x.scheduled}">編集</button></div></div>`).join('')}</section>`).join(''):'<div class="empty">給与がありません</div>');}
+const YEAR_TICK=250000;
+function annualEmployerStats(rows){
+ const byId=new Map();
+ for(const x of rows){
+  let s=byId.get(x.e.id);
+  if(!s){s={id:x.e.id,name:x.e.name,expected:0,confirmed:0,net:0,social:0,travel:0,missingSocial:false};byId.set(x.e.id,s)}
+  const a=actual(x.e,x.r);
+  s.expected+=a?a.total:x.f.total;
+  if(a){
+   s.confirmed+=a.total;s.net+=a.net??0;
+   if(a.social===null)s.missingSocial=true;else s.social+=a.social;
+   s.travel+=a.travel;
+  }else{s.travel+=x.f.travel;}
+ }
+ return [...byId.values()].filter(s=>s.expected||s.confirmed||s.net||s.social||s.travel).sort((a,b)=>b.expected-a.expected||a.name.localeCompare(b.name,'ja'));
+}
+function annualChart(totals,year){
+ const maxData=Math.max(0,...totals.map(t=>t.expected));
+ const steps=Math.max(1,Math.ceil(maxData/YEAR_TICK)+1),scale=steps*YEAR_TICK;
+ // 25万円ごとに線を描画。高額の場合は数字だけ間引いて読みやすさを保つ。
+ const labelEvery=steps<=8?1:steps<=16?2:steps<=32?4:8;
+ const grid=Array.from({length:steps+1},(_,i)=>`<div class="graph-line${i===0?' base':''}" style="bottom:${100*i/steps}%"></div>`).join('');
+ const labels=Array.from({length:steps+1},(_,i)=>(i%labelEvery===0||i===steps)?`<span class="graph-axis-label" style="bottom:${100*i/steps}%">${i===0?'0':(i*25)+'万'}</span>`:'').join('');
+ const bars=totals.map((t,i)=>{
+  const confirmed=t.confirmedGross,predicted=Math.max(0,t.expected-confirmed),total=confirmed+predicted;
+  const pct=100*total/scale;
+  const donePct=total>0?100*confirmed/total:0,predPct=total>0?100*predicted/total:0;
+  return `<div class="graph-column" title="${i+1}月　確定${money(confirmed)}／予想${money(predicted)}" aria-label="${i+1}月の確定${money(confirmed)}、予想${money(predicted)}"><div class="graph-bar" style="height:${pct.toFixed(5)}%"><div class="graph-part pred" style="height:${predPct.toFixed(5)}%"></div><div class="graph-part done" style="height:${donePct.toFixed(5)}%"></div></div></div>`;
+ }).join('');
+ return `<div class="annual-graph" role="img" aria-label="${year}年の月別給与額面。薄い横線は25万円間隔。濃い色が確定額面、薄い色が未確定の予想額面。"><div class="graph-axis" aria-hidden="true">${labels}</div><div class="graph-area" aria-hidden="true">${grid}<div class="graph-columns">${bars}</div></div></div><div class="graph-months" aria-hidden="true">${Array.from({length:12},(_,i)=>`<span>${i+1}</span>`).join('')}</div>`;
+}
+function socialDisplay(s){return s.missingSocial?(s.social?money(s.social)+' ※':'未入力'):money(s.social);}
 function yearPage(){
  const months=annualRows(ui.year),all=months.flat(),s=sumRows(all),totals=months.map(sumRows);
- const max=Math.max(1,...totals.map(t=>t.expected));
- const columns=totals.map((t,i)=>{const done=t.confirmedGross,expected=Math.max(0,t.expected-done);
-  const h1=100*done/max,h2=100*expected/max;
-  return `<div class="bar-col" title="${i+1}月：確定${money(done)}／予想${money(expected)}"><div class="bar-track"><div class="bar-segment bar-pred" style="height:${h2.toFixed(3)}%"></div><div class="bar-segment bar-done" style="height:${h1.toFixed(3)}%"></div></div><span>${i+1}</span></div>`}).join('');
- return top('年間',yearPicker())+`<div class="hero"><small>${ui.year}年の支給額（確定＋予想）</small><strong>${money(s.expected)}</strong></div>
- <div class="kpi-grid"><div class="card kpi"><div class="caption">予想額面</div><strong>${money(s.forecast)}</strong></div><div class="card kpi"><div class="caption">確定支給</div><strong>${money(s.confirmedGross)}</strong></div><div class="card kpi"><div class="caption">確定手取り</div><strong>${money(s.net)}</strong></div></div>
- <section class="card"><div class="card-head"><h2>月別の支給額</h2><div class="bar-legend"><span><i class="dot done"></i>確定</span><span><i class="dot pred"></i>予想</span></div></div><div class="bar-chart" role="img" aria-label="${ui.year}年の月別給与額面棒グラフ">${columns}</div></section>
- <section class="card section-gap"><h2>月別</h2><div class="table-scroll"><table><thead><tr><th>月</th><th>予想</th><th>確定支給</th><th>手取り</th></tr></thead><tbody>${totals.map((t,i)=>`<tr><td>${i+1}月</td><td>${money(t.forecast)}</td><td>${money(t.confirmedGross)}</td><td>${money(t.net)}</td></tr>`).join('')}</tbody></table></div></section>`;
+ const employers=annualEmployerStats(all);
+ const sums=employers.reduce((a,e)=>({expected:a.expected+e.expected,confirmed:a.confirmed+e.confirmed,net:a.net+e.net,social:a.social+e.social,travel:a.travel+e.travel,missingSocial:a.missingSocial||e.missingSocial}),{expected:0,confirmed:0,net:0,social:0,travel:0,missingSocial:false});
+ const desktop=employers.map(e=>`<tr><td title="${esc(e.name)}">${esc(e.name)}</td><td>${money(e.expected)}</td><td>${money(e.confirmed)}</td><td>${money(e.net)}</td><td>${socialDisplay(e)}</td><td>${money(e.travel)}</td></tr>`).join('');
+ const mobile=employers.map(e=>`<details><summary><span class="emp-name">${esc(e.name)}</span><span class="emp-amount">${money(e.expected)}</span><span class="emp-chevron" aria-hidden="true">⌄</span></summary><div class="emp-stats"><div class="emp-stat"><small>確定額面</small><strong>${money(e.confirmed)}</strong></div><div class="emp-stat"><small>手取り</small><strong>${money(e.net)}</strong></div><div class="emp-stat"><small>社保</small><strong>${socialDisplay(e)}</strong></div><div class="emp-stat"><small>交通費</small><strong>${money(e.travel)}</strong></div></div></details>`).join('');
+ return top('年間',yearPicker())+`<div class="hero"><small>${ui.year}年の額面（確定＋予想）</small><strong>${money(s.expected)}</strong></div>
+ <div class="kpi-grid"><div class="card kpi"><div class="caption">予想額面</div><strong>${money(s.forecast)}</strong></div><div class="card kpi"><div class="caption">確定額面</div><strong>${money(s.confirmedGross)}</strong></div><div class="card kpi"><div class="caption">手取り</div><strong>${money(s.net)}</strong></div></div>
+ <section class="card annual-chart-card"><div class="card-head"><h2>月別</h2><div class="bar-legend"><span><i class="dot done"></i>確定</span><span><i class="dot pred"></i>予想</span></div></div>${annualChart(totals,ui.year)}</section>
+ <section class="card annual-employers"><div class="card-head"><h2>勤務先別</h2><span class="pill gray">${employers.length}件</span></div>
+ ${employers.length?`<div class="annual-table-scroll table-scroll"><table class="annual-table"><thead><tr><th>勤務先</th><th>年間額面</th><th>確定額面</th><th>手取り</th><th>社保</th><th>交通費</th></tr></thead><tbody>${desktop}<tr class="annual-total-row"><td>合計</td><td>${money(sums.expected)}</td><td>${money(sums.confirmed)}</td><td>${money(sums.net)}</td><td>${socialDisplay(sums)}</td><td>${money(sums.travel)}</td></tr></tbody></table></div>
+ <div class="annual-mobile">${mobile}<div class="total-row"><span>合計</span><span>${money(sums.expected)}</span></div></div><p class="annual-employer-note">年間額面・交通費は未確定の予想を含む。${sums.missingSocial?' ※社保は入力済み分のみ。':''}</p>`:'<div class="empty">給与データがありません</div>'}</section>
+ <section class="card section-gap"><h2>月別明細</h2><div class="table-scroll"><table><thead><tr><th>月</th><th>予想</th><th>確定額面</th><th>手取り</th></tr></thead><tbody>${totals.map((t,i)=>`<tr><td>${i+1}月</td><td>${money(t.forecast)}</td><td>${money(t.confirmedGross)}</td><td>${money(t.net)}</td></tr>`).join('')}</tbody></table></div></section>`;
 }
 // 2026・2027年分の制度に限定。2028年以降の控除額を推測しない。
 function salaryDeduction(g){if(g<=2200000)return Math.min(g,740000);if(g<=3600000)return g*.30+80000;if(g<=6600000)return g*.20+440000;if(g<=8500000)return g*.10+1100000;return 1950000;}
