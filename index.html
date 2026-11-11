@@ -58,7 +58,7 @@
 @media(max-width:980px){.mobile-top{display:flex}}
 @media(max-width:680px){.salary-line{min-height:52px;padding:9px 1px}.salary-right strong{font-size:14px}.salary-name{font-size:13px}}
 </style></head><body>
-<aside class="sidebar"><div class="brand"><div class="mark"><img src="icon-192.png" alt="" width="34" height="34"></div>Dr.Pay</div><nav id="side-nav"></nav><div class="version">v1.5.6</div></aside>
+<aside class="sidebar"><div class="brand"><div class="mark"><img src="icon-192.png" alt="" width="34" height="34"></div>Dr.Pay</div><nav id="side-nav"></nav><div class="version">v1.5.7</div></aside>
 <div class="mobile-top"><img src="icon-192.png" width="25" height="25" alt=""> Dr.Pay</div><main id="app" class="main"></main><nav id="mobile-nav" class="mobile-nav" aria-label="メニュー"></nav>
 <div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div>
 <input type="file" id="json-upload" accept="application/json,.json" hidden>
@@ -241,13 +241,16 @@ function yearPage(){
 function salaryDeduction(g){if(g<=2200000)return Math.min(g,740000);if(g<=3600000)return g*.30+80000;if(g<=6600000)return g*.20+440000;if(g<=8500000)return g*.10+1100000;return 1950000;}
 function baseDeduction(income){if(income<=4890000)return 1040000;if(income<=6550000)return 670000;if(income<=23500000)return 620000;if(income<=24000000)return 480000;if(income<=24500000)return 320000;if(income<=25000000)return 160000;return 0;}
 function taxBracket(t){for(const [limit,rate,less] of [[1950000,.05,0],[3300000,.10,97500],[6950000,.20,427500],[9000000,.23,636000],[18000000,.33,1536000],[40000000,.40,2796000],[Infinity,.45,4796000]])if(t<limit)return {rate,less};return {rate:.45,less:4796000};}
-function taxCalc(gross,social,dc,ideco,medical){
- const income=Math.max(0,gross-salaryDeduction(gross)),basic=baseDeduction(income);
+// 23歳未満の扶養親族等がいる場合、年収850万円超は最大15万円の所得金額調整控除。
+function incomeAdjustment(gross,eligible){return eligible&&gross>8500000?Math.ceil((Math.min(gross,10000000)-8500000)*.1):0;}
+function taxCalc(gross,social,dc,ideco,medical,under23=false){
+ const adjustment=incomeAdjustment(gross,under23);
+ const income=Math.max(0,gross-salaryDeduction(gross)-adjustment),basic=baseDeduction(income);
  const taxable=Math.max(0,Math.floor((income-basic-social-dc-ideco-medical)/1000)*1000),b=taxBracket(taxable);
  const incomeTax=Math.floor(Math.max(0,taxable*b.rate-b.less));
- return {income,basic,taxable,rate:b.rate,tax:incomeTax+Math.floor(incomeTax*.021)};
+ return {income,adjustment,basic,taxable,rate:b.rate,tax:incomeTax+Math.floor(incomeTax*.021)};
 }
-function profile(y){const p=db.tax[String(y)]||{};return {ideco:n(p.ideco),medical:n(p.medical),extraIncome:n(p.extraIncome),futureSocial:n(p.futureSocial)};}
+function profile(y){const p=db.tax[String(y)]||{};return {ideco:n(p.ideco),medical:n(p.medical),extraIncome:n(p.extraIncome),futureSocial:n(p.futureSocial),under23:p.under23===undefined?true:p.under23===true};}
 function taxStats(y){
  const p=profile(y),rows=yearRows(y);
  let confirmedGross=0,unconfirmedGross=0,actualSocial=0,actualDC=0,futureDC=0,dcDeduction=0,futureDCDeduction=0,withheld=0,missingDeductions=0;
@@ -268,10 +271,10 @@ function taxStats(y){
    if(matching)futureDCDeduction+=dc;
   }
  }
- const current=taxCalc(confirmedGross,actualSocial,dcDeduction,p.ideco,p.medical);
+ const current=taxCalc(confirmedGross,actualSocial,dcDeduction,p.ideco,p.medical,p.under23);
  const futureGross=confirmedGross+unconfirmedGross+p.extraIncome;
  const futureSocial=actualSocial+p.futureSocial;
- const future=taxCalc(futureGross,futureSocial,dcDeduction+futureDCDeduction,p.ideco,p.medical);
+ const future=taxCalc(futureGross,futureSocial,dcDeduction+futureDCDeduction,p.ideco,p.medical,p.under23);
  // 住民税所得割は給与から独立して概算。給与天引きの住民税は所得税の源泉徴収には含めない。
  const residentIncome=Math.max(0,future.income-futureSocial-dcDeduction-futureDCDeduction-p.ideco-p.medical-430000);
  const residentLevy=Math.max(0,Math.floor(residentIncome/1000)*1000*.10-2500);
@@ -284,12 +287,12 @@ function pick(name,label,options,value){return `<div class="field"><label for="f
 function taxPage(){const y=ui.year;if(y<2026||y>2027)return top('税金',yearPicker())+'<div class="warn">税額計算は2026・2027年分に対応しています。</div>';
  const r=taxStats(y),p=r.p;return top('税金',yearPicker())+`
  <div class="split"><section class="card"><div class="card-head"><h2>所得税</h2><span class="pill amber">概算</span></div><div class="green"><span>暫定予定納税額</span><strong>${r.payment===null?'—':signedMoney(r.payment)}</strong></div><div class="sub" style="margin-top:7px">＋納税 ／ −還付</div>
- <div class="rowline"><span>確定給与</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>源泉所得税</span><b>${money(r.withheld)}</b></div><div class="rowline"><span>所得税見込</span><b>${money(r.current.tax)}</b></div><div class="rowline"><span>社会保険料</span><b>${money(r.actualSocial)}</b></div><div class="rowline"><span>基礎控除</span><b>${money(r.current.basic)}</b></div>
+ <div class="rowline"><span>確定給与</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>源泉所得税</span><b>${money(r.withheld)}</b></div><div class="rowline"><span>所得税見込</span><b>${money(r.current.tax)}</b></div><div class="rowline"><span>社会保険料</span><b>${money(r.actualSocial)}</b></div><div class="rowline"><span>基礎控除</span><b>${money(r.current.basic)}</b></div><div class="rowline"><span>所得調整</span><b>${money(r.current.adjustment)}</b></div>
  ${r.missingDeductions?`<div class="warn">社保・所得税が${r.missingDeductions}件未入力</div>`:''}</section>
  <section class="card"><div class="card-head"><h2>ふるさと納税</h2><span class="pill amber">概算</span></div><div class="green"><span>寄附上限</span><strong>${money(r.cap)}</strong></div>
  <div class="rowline"><span>確定給与</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>未確定予想＋追加収入</span><b>${money(r.unconfirmedGross+p.extraIncome)}</b></div><div class="rowline"><span>社保（実績＋予定）</span><b>${money(r.actualSocial+p.futureSocial)}</b></div></section></div>
  <section class="card section-gap"><div class="card-head"><h2>試算条件</h2></div><div class="rowline"><span>企業型DC（年間）<small class="sub" style="display:block">確定 ${money(r.actualDC)} ／ 予想 ${money(r.futureDC)}</small></span><b>${money(r.actualDC+r.futureDC)}</b></div><form id="tax-form"><div class="form-grid">
- ${field('ideco','iDeCo（年間）',p.ideco)}${field('medical','医療費控除額',p.medical)}
+ ${pick('under23','23歳未満の扶養親族',[['true','あり'],['false','なし']],p.under23)}${field('ideco','iDeCo（年間）',p.ideco)}${field('medical','医療費控除額',p.medical)}
  ${field('extraIncome','追加収入（交通費抜）',p.extraIncome)}${field('futureSocial','今後の社会保険料',p.futureSocial)}
  </div><div class="modal-bottom"><button class="button primary" type="submit">保存</button></div></form></section>`;}
 function employerSummary(e){const p=`${nameDay(e.closeDay)}締/${n(e.payDay)?lagText(e.lag)+nameDay(e.payDay):'振込日未設定'}`;
@@ -354,7 +357,7 @@ function updatePreview(){const f=$('#entry-form');if(!f||!ui.modal)return;const 
   const social=socialOf(socialDraft);
   if(el)el.textContent=v.every(x=>x!=='')&&social!==null?money(n(v[0])-social-n(v[1])-n(v[2])):(f.elements.importNet.value.trim()!==''?money(n(f.elements.importNet.value)):'—');
  }else{const keys=['actualGross','actualTravel','actualNet'],v=keys.map(k=>f.elements[k].value.trim()),el=$('#tax-preview');if(el)el.textContent=v.every(x=>x!=='')?money(n(v[0])+n(v[1])-n(v[2])):'—';}}
-function taxSave(f){const y=String(ui.year),p={};for(const key of ['ideco','medical','extraIncome','futureSocial'])p[key]=intField(f,key);db.tax[y]=p;save();render();toast('保存しました');}
+function taxSave(f){const y=String(ui.year),p={under23:f.elements.under23.value==='true'};for(const key of ['ideco','medical','extraIncome','futureSocial'])p[key]=intField(f,key);db.tax[y]=p;save();render();toast('保存しました');}
 function download(text,name,mime){const url=URL.createObjectURL(new Blob([text],{type:mime})),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),20000)}
 function exportJSON(){download(JSON.stringify(db,null,2),'drpay-backup.json','application/json');toast('バックアップを保存しました')}
 function exportCSV(){const lines=[['振込月','実振込日','勤務先','区分','予想支給額','確定支給額','確定交通費','確定手取り','源泉所得税','社会保険料','企業型DC','住民税']];for(let m=1;m<=12;m++){for(const x of salaryRows(monthKey(ui.year,m))){const a=actual(x.e,x.r);lines.push([monthKey(ui.year,m),x.date?dayISO(x.date):'',x.e.name,kindName(x.e.kind),x.f.total,a?.total??'',a?.travel??'',a?.net??'',a?.incomeTax??'',a?.social??'',a?.dc??'',a?.resident??'']);}}const csv='\ufeff'+lines.map(a=>a.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\r\n');download(csv,`mydoctorpay-${ui.year}.csv`,'text/csv;charset=utf-8');}
