@@ -58,7 +58,7 @@
 @media(max-width:980px){.mobile-top{display:flex}}
 @media(max-width:680px){.salary-line{min-height:52px;padding:9px 1px}.salary-right strong{font-size:14px}.salary-name{font-size:13px}}
 </style></head><body>
-<aside class="sidebar"><div class="brand"><div class="mark"><img src="icon-192.png" alt="" width="34" height="34"></div>Dr.Pay</div><nav id="side-nav"></nav><div class="version">v1.5.5</div></aside>
+<aside class="sidebar"><div class="brand"><div class="mark"><img src="icon-192.png" alt="" width="34" height="34"></div>Dr.Pay</div><nav id="side-nav"></nav><div class="version">v1.5.6</div></aside>
 <div class="mobile-top"><img src="icon-192.png" width="25" height="25" alt=""> Dr.Pay</div><main id="app" class="main"></main><nav id="mobile-nav" class="mobile-nav" aria-label="メニュー"></nav>
 <div id="modal-root"></div><div id="toast-root" role="status" aria-live="polite"></div>
 <input type="file" id="json-upload" accept="application/json,.json" hidden>
@@ -252,16 +252,20 @@ function taxStats(y){
  const p=profile(y),rows=yearRows(y);
  let confirmedGross=0,unconfirmedGross=0,actualSocial=0,actualDC=0,futureDC=0,dcDeduction=0,futureDCDeduction=0,withheld=0,missingDeductions=0;
  for(const x of rows){const a=actual(x.e,x.r),matching=x.e.kind==='full'&&(x.e.dcTaxMode||'matching')==='matching';
+  // 非課税交通費を除外。本人掛金型DCだけは給与収入に戻し、別途所得控除する。
+  const dc=a?a.dc:x.f.dc, taxable=a?a.taxable:x.f.taxable;
+  const salaryIncome=taxable+(matching?dc:0);
   if(a){
-   // 本人掛金型は、DC差引前の給与に復元してから小規模企業共済等掛金控除を適用。
-   // 選択制DC（給与減額型）は支給総額に既に反映済みのため復元・再控除しない。
-   confirmedGross+=a.taxable+(matching?a.dc:0);actualSocial+=a.social??0;actualDC+=a.dc;
-   if(matching)dcDeduction+=a.dc;
+   confirmedGross+=salaryIncome;
+   actualSocial+=a.social??0;
+   actualDC+=dc;
+   if(matching)dcDeduction+=dc;
    withheld+=a.incomeTax??0;
    if(a.incomeTax===null||a.social===null)missingDeductions++;
   }else{
-   unconfirmedGross+=x.f.taxable+(matching?x.f.dc:0);futureDC+=x.f.dc;
-   if(matching)futureDCDeduction+=x.f.dc;
+   unconfirmedGross+=salaryIncome;
+   futureDC+=dc;
+   if(matching)futureDCDeduction+=dc;
   }
  }
  const current=taxCalc(confirmedGross,actualSocial,dcDeduction,p.ideco,p.medical);
@@ -280,15 +284,14 @@ function pick(name,label,options,value){return `<div class="field"><label for="f
 function taxPage(){const y=ui.year;if(y<2026||y>2027)return top('税金',yearPicker())+'<div class="warn">税額計算は2026・2027年分に対応しています。</div>';
  const r=taxStats(y),p=r.p;return top('税金',yearPicker())+`
  <div class="split"><section class="card"><div class="card-head"><h2>所得税</h2><span class="pill amber">概算</span></div><div class="green"><span>暫定予定納税額</span><strong>${r.payment===null?'—':signedMoney(r.payment)}</strong></div><div class="sub" style="margin-top:7px">＋納税 ／ −還付</div>
- <div class="rowline"><span>確定給与収入</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>源泉所得税（入力済）</span><b>${money(r.withheld)}</b></div><div class="rowline"><span>所得税見込</span><b>${money(r.current.tax)}</b></div><div class="rowline"><span>社会保険料（入力済）</span><b>${money(r.actualSocial)}</b></div><div class="rowline"><span>基礎控除</span><b>${money(r.current.basic)}</b></div>
- ${r.missingDeductions?`<div class="warn">常勤など${r.missingDeductions}件の社会保険料・所得税が未入力です。納税差額は表示していません。</div>`:''}<p class="note">確定済み給与のみで試算。住民税の天引き額は源泉所得税に含めません。</p></section>
- <section class="card"><div class="card-head"><h2>ふるさと納税</h2><span class="pill amber">概算</span></div><div class="green"><span>寄附上限（1円単位）</span><strong>${money(r.cap)}</strong></div>
- <div class="rowline"><span>確定給与</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>未確定予想＋追加収入</span><b>${money(r.unconfirmedGross+p.extraIncome)}</b></div><div class="rowline"><span>社会保険料（入力＋予定）</span><b>${money(r.actualSocial+p.futureSocial)}</b></div><p class="note">住民税所得割から試算。控除未入力時の上限は過大になる可能性があります。</p></section></div>
+ <div class="rowline"><span>確定給与</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>源泉所得税</span><b>${money(r.withheld)}</b></div><div class="rowline"><span>所得税見込</span><b>${money(r.current.tax)}</b></div><div class="rowline"><span>社会保険料</span><b>${money(r.actualSocial)}</b></div><div class="rowline"><span>基礎控除</span><b>${money(r.current.basic)}</b></div>
+ ${r.missingDeductions?`<div class="warn">社保・所得税が${r.missingDeductions}件未入力</div>`:''}</section>
+ <section class="card"><div class="card-head"><h2>ふるさと納税</h2><span class="pill amber">概算</span></div><div class="green"><span>寄附上限</span><strong>${money(r.cap)}</strong></div>
+ <div class="rowline"><span>確定給与</span><b>${money(r.confirmedGross)}</b></div><div class="rowline"><span>未確定予想＋追加収入</span><b>${money(r.unconfirmedGross+p.extraIncome)}</b></div><div class="rowline"><span>社保（実績＋予定）</span><b>${money(r.actualSocial+p.futureSocial)}</b></div></section></div>
  <section class="card section-gap"><div class="card-head"><h2>試算条件</h2></div><div class="rowline"><span>企業型DC（年間）<small class="sub" style="display:block">確定 ${money(r.actualDC)} ／ 予想 ${money(r.futureDC)}</small></span><b>${money(r.actualDC+r.futureDC)}</b></div><form id="tax-form"><div class="form-grid">
- ${field('ideco','iDeCo（年間拠出額）',p.ideco)}${field('medical','医療費控除額',p.medical)}
- ${field('extraIncome','追加で見込む額面（非課税交通費抜）',p.extraIncome)}${field('futureSocial','今後の社会保険料',p.futureSocial)}
- </div><div class="modal-bottom"><button class="button primary" type="submit">保存</button></div></form>
- <p class="note">DCは勤務先で選択した税務区分により計算します。所得控除対象（確定＋予想）：${money(r.dcDeduction+r.futureDCDeduction)}。</p></section>`;}
+ ${field('ideco','iDeCo（年間）',p.ideco)}${field('medical','医療費控除額',p.medical)}
+ ${field('extraIncome','追加収入（交通費抜）',p.extraIncome)}${field('futureSocial','今後の社会保険料',p.futureSocial)}
+ </div><div class="modal-bottom"><button class="button primary" type="submit">保存</button></div></form></section>`;}
 function employerSummary(e){const p=`${nameDay(e.closeDay)}締/${n(e.payDay)?lagText(e.lag)+nameDay(e.payDay):'振込日未設定'}`;
  if(e.kind==='weekly')return `${e.weekday===''?'曜日未設定':wd[Number(e.weekday)]}/祝${e.holiday?'勤務':'休'}　${money(e.daily)} ${p}`;
  if(e.kind==='full')return `常勤　${money(e.forecastTotal)} ${p}`;return `スポット　${p}`;}
